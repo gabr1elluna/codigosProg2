@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Propriedade 1: Todo nó é VERMELHO ou PRETO
 typedef enum {
     VERMELHO,
     PRETO
@@ -17,10 +16,8 @@ typedef struct No {
 
 typedef struct {
     No *raiz;
-    No *NIL; // Sentinela que representa as folhas pretas
+    No *NIL;
 } ArvoreRN;
-
-// --- FUNÇÕES DE INICIALIZAÇÃO ---
 
 ArvoreRN *criarArvore() {
     ArvoreRN *arvore = malloc(sizeof(ArvoreRN));
@@ -36,7 +33,6 @@ ArvoreRN *criarArvore() {
         exit(1);
     }
 
-    // Propriedade 3: Toda folha (NIL) é PRETA
     arvore->NIL->cor = PRETO;
     arvore->NIL->esquerda = arvore->NIL;
     arvore->NIL->direita = arvore->NIL;
@@ -54,14 +50,13 @@ No *criarNo(ArvoreRN *arvore, int valor) {
     }
 
     novo->valor = valor;
-    novo->cor = VERMELHO; // Inserção com correção: o nó novo é pintado de vermelho
+    novo->cor = VERMELHO;
     novo->esquerda = arvore->NIL;
     novo->direita = arvore->NIL;
     novo->pai = arvore->NIL;
     return novo;
 }
 
-// --- FUNÇÕES AUXILIARES E DE BUSCA ---
 
 No *buscar(No *no, No *NIL, int valor) {
     if (no == NIL || no->valor == valor) {
@@ -91,7 +86,6 @@ void transplantar(ArvoreRN *arvore, No *u, No *v) {
     v->pai = u->pai;
 }
 
-// --- ROTAÇÕES ---
 
 void rotacaoEsquerda(ArvoreRN *arvore, No *x) {
     No *y = x->direita;
@@ -117,53 +111,45 @@ void rotacaoDireita(ArvoreRN *arvore, No *y) {
     y->pai = x;
 }
 
-// --- INSERÇÃO E CORREÇÃO ---
-
 void balancearInsercao(ArvoreRN *arvore, No *z) {
     while (z->pai->cor == VERMELHO) {
-        if (z->pai == z->pai->pai->esquerda) { // Pai é filho à esquerda
-            No *y = z->pai->pai->direita; // Tio
+        if (z->pai == z->pai->pai->esquerda) {
+            No *y = z->pai->pai->direita;
             
             if (y->cor == VERMELHO) { 
-                // Tio Vermelho: Recoloração
                 z->pai->cor = PRETO;
                 y->cor = PRETO;
                 z->pai->pai->cor = VERMELHO;
                 z = z->pai->pai;
             } else { 
-                // Tio Preto
-                if (z == z->pai->direita) { // Esquerda-Direita
+                if (z == z->pai->direita) {
                     z = z->pai;
                     rotacaoEsquerda(arvore, z);
                 }
-                // Esquerda-Esquerda: Rotação seguida de recoloração
                 z->pai->cor = PRETO;
                 z->pai->pai->cor = VERMELHO;
                 rotacaoDireita(arvore, z->pai->pai);
             }
-        } else { // Pai é filho à direita
-            No *y = z->pai->pai->esquerda; // Tio
+        } else {
+            No *y = z->pai->pai->esquerda;
             
             if (y->cor == VERMELHO) {
-                // Tio Vermelho: Recoloração
                 z->pai->cor = PRETO;
                 y->cor = PRETO;
                 z->pai->pai->cor = VERMELHO;
                 z = z->pai->pai;
             } else {
-                // Tio Preto
-                if (z == z->pai->esquerda) { // Direita-Esquerda
+                if (z == z->pai->esquerda) {
                     z = z->pai;
                     rotacaoDireita(arvore, z);
                 }
-                // Direita-Direita: Rotação seguida de recoloração
                 z->pai->cor = PRETO;
                 z->pai->pai->cor = VERMELHO;
                 rotacaoEsquerda(arvore, z->pai->pai);
             }
         }
     }
-    arvore->raiz->cor = PRETO; // A raiz deve ser preta ao final
+    arvore->raiz->cor = PRETO;
 }
 
 void inserir(ArvoreRN *arvore, int valor) {
@@ -190,8 +176,6 @@ void inserir(ArvoreRN *arvore, int valor) {
     balancearInsercao(arvore, z);
     printf("Valor %d inserido com sucesso.\n", valor);
 }
-
-// --- REMOÇÃO E CORREÇÃO ---
 
 void balancearRemocao(ArvoreRN *arvore, No *x) {
     while (x != arvore->raiz && x->cor == PRETO) {
@@ -258,8 +242,6 @@ void remover(ArvoreRN *arvore, int valor) {
     No *y = z;
     No *x;
     Cor corOriginalY = y->cor;
-
-    // Caso 1 e 2: O nó a ser removido tem no máximo 1 filho
     if (z->esquerda == arvore->NIL) {
         x = z->direita;
         transplantar(arvore, z, z->direita);
@@ -267,7 +249,6 @@ void remover(ArvoreRN *arvore, int valor) {
         x = z->esquerda;
         transplantar(arvore, z, z->esquerda);
     } else {
-        // Caso 3: O nó tem dois filhos. Substituir pelo sucessor.
         y = minimo(arvore, z->direita);
         corOriginalY = y->cor;
         x = y->direita;
@@ -287,14 +268,11 @@ void remover(ArvoreRN *arvore, int valor) {
 
     free(z);
 
-    // Corrigir violações se o nó removido da sua posição original for preto
     if (corOriginalY == PRETO) {
         balancearRemocao(arvore, x);
     }
     printf("Valor %d removido com sucesso.\n", valor);
 }
-
-// --- PERCURSOS ---
 
 void percorrerPreOrdem(ArvoreRN *arvore, No *raiz) {
     if (raiz != arvore->NIL) {
@@ -320,18 +298,16 @@ void percorrerPosOrdem(ArvoreRN *arvore, No *raiz) {
     }
 }
 
-// --- EXIBIÇÃO E CÁLCULOS ---
 
 int calcularAlturaPreta(ArvoreRN *arvore, No *no) {
     int altura = 0;
-    // Percorre um caminho qualquer (vamos pela esquerda) até chegar ao sentinela NIL
     while (no != arvore->NIL) {
         if (no->cor == PRETO) {
             altura++;
         }
         no = no->esquerda; 
     }
-    return altura + 1; // Soma 1 porque o próprio NIL é considerado preto
+    return altura + 1;
 }
 
 void imprimirArvoreCores(ArvoreRN *arvore, No *raiz, int espaco) {
@@ -361,8 +337,6 @@ void exibirCoresEAltura(ArvoreRN *arvore) {
     printf("\n----------------------------------\n");
 }
 
-// --- LIMPEZA DE MEMÓRIA ---
-
 void liberarNos(ArvoreRN *arvore, No *no) {
     if (no != arvore->NIL) {
         liberarNos(arvore, no->esquerda);
@@ -377,21 +351,20 @@ void liberarArvore(ArvoreRN *arvore) {
     free(arvore);
 }
 
-// --- FUNÇÃO PRINCIPAL (MENUS) ---
 
 int main() {
     ArvoreRN *arvore = criarArvore();
     int opcaoMenuPrincipal, opcaoSubmenu, valor;
 
     do {
-        printf("\n======= MENU ARVORE RUBRO-NEGRA =======\n");
+        printf("\n======= MENU =======\n");
         printf("1 - Inserir valor\n");
         printf("2 - Buscar valor\n");
         printf("3 - Remover valor\n");
         printf("4 - Percorrer arvore\n");
         printf("5 - Exibir cores e altura preta\n");
         printf("0 - Sair\n");
-        printf("=======================================\n");
+        printf("====================\n");
         printf("Escolha uma opcao: ");
         
         if (scanf("%d", &opcaoMenuPrincipal) != 1) {
