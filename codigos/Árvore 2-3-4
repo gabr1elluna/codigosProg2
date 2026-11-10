@@ -1,0 +1,334 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#define MAX_CHAVES 3
+#define MAX_FILHOS 4
+
+typedef struct No {
+    int chave[MAX_CHAVES];
+    struct No *filho[MAX_FILHOS];
+    int n;
+    int folha;
+} No;
+
+static No *criar_no(int folha) {
+    No *no = (No *)malloc(sizeof(No));
+    if (!no) {
+        fprintf(stderr, "Erro: memoria insuficiente.\n");
+        exit(EXIT_FAILURE);
+    }
+    no->n = 0;
+    no->folha = folha;
+    for (int i = 0; i < MAX_FILHOS; i++) no->filho[i] = NULL;
+    return no;
+}
+
+static int buscar(No *raiz, int valor) {
+    if (!raiz) return 0;
+    int i = 0;
+    while (i < raiz->n && valor > raiz->chave[i]) i++;
+    if (i < raiz->n && valor == raiz->chave[i]) return 1;
+    if (raiz->folha) return 0;
+    return buscar(raiz->filho[i], valor);
+}
+
+/* Divide um filho cheio (3 chaves), promovendo sua chave central. */
+static void dividir_filho(No *pai, int indice) {
+    No *cheio = pai->filho[indice];
+    No *direita = criar_no(cheio->folha);
+    direita->n = 1;
+    direita->chave[0] = cheio->chave[2];
+
+    if (!cheio->folha) {
+        direita->filho[0] = cheio->filho[2];
+        direita->filho[1] = cheio->filho[3];
+        cheio->filho[2] = NULL;
+        cheio->filho[3] = NULL;
+    }
+
+    int promovida = cheio->chave[1];
+    cheio->n = 1;
+
+    for (int j = pai->n; j >= indice + 1; j--)
+        pai->filho[j + 1] = pai->filho[j];
+    pai->filho[indice + 1] = direita;
+
+    for (int j = pai->n - 1; j >= indice; j--)
+        pai->chave[j + 1] = pai->chave[j];
+    pai->chave[indice] = promovida;
+    pai->n++;
+}
+
+static void inserir_nao_cheio(No *no, int valor) {
+    int i = no->n - 1;
+    if (no->folha) {
+        while (i >= 0 && valor < no->chave[i]) {
+            no->chave[i + 1] = no->chave[i];
+            i--;
+        }
+        no->chave[i + 1] = valor;
+        no->n++;
+    } else {
+        while (i >= 0 && valor < no->chave[i]) i--;
+        i++;
+        if (no->filho[i]->n == MAX_CHAVES) {
+            dividir_filho(no, i);
+            if (valor > no->chave[i]) i++;
+        }
+        inserir_nao_cheio(no->filho[i], valor);
+    }
+}
+
+/* Valores repetidos sao ignorados; a arvore armazena apenas chaves distintas. */
+static void inserir(No **raiz, int valor) {
+    if (buscar(*raiz, valor)) {
+        printf("Valor ja existe; duplicatas nao sao inseridas.\n");
+        return;
+    }
+    if (!*raiz) {
+        *raiz = criar_no(1);
+        (*raiz)->chave[0] = valor;
+        (*raiz)->n = 1;
+        return;
+    }
+    if ((*raiz)->n == MAX_CHAVES) {
+        No *nova = criar_no(0);
+        nova->filho[0] = *raiz;
+        dividir_filho(nova, 0);
+        int i = (valor > nova->chave[0]) ? 1 : 0;
+        inserir_nao_cheio(nova->filho[i], valor);
+        *raiz = nova;
+    } else {
+        inserir_nao_cheio(*raiz, valor);
+    }
+}
+
+static int encontrar_chave(No *no, int valor) {
+    int idx = 0;
+    while (idx < no->n && no->chave[idx] < valor) idx++;
+    return idx;
+}
+
+static int predecessor(No *no) {
+    while (!no->folha) no = no->filho[no->n];
+    return no->chave[no->n - 1];
+}
+
+static int sucessor(No *no) {
+    while (!no->folha) no = no->filho[0];
+    return no->chave[0];
+}
+
+static void fundir_filhos(No *pai, int idx) {
+    No *esq = pai->filho[idx];
+    No *dir = pai->filho[idx + 1];
+    esq->chave[1] = pai->chave[idx];
+    esq->chave[2] = dir->chave[0];
+    esq->n = 3;
+
+    if (!esq->folha) {
+        esq->filho[2] = dir->filho[0];
+        esq->filho[3] = dir->filho[1];
+    }
+
+    for (int j = idx; j < pai->n - 1; j++)
+        pai->chave[j] = pai->chave[j + 1];
+    for (int j = idx + 1; j < pai->n; j++)
+        pai->filho[j] = pai->filho[j + 1];
+    pai->n--;
+    pai->filho[pai->n + 1] = NULL;
+    free(dir);
+}
+
+static void preencher_filho(No *pai, int idx) {
+    if (idx != 0 && pai->filho[idx - 1]->n >= 2) {
+        No *filho = pai->filho[idx];
+        No *irmao = pai->filho[idx - 1];
+        for (int j = filho->n - 1; j >= 0; j--)
+            filho->chave[j + 1] = filho->chave[j];
+        if (!filho->folha) {
+            for (int j = filho->n; j >= 0; j--)
+                filho->filho[j + 1] = filho->filho[j];
+            filho->filho[0] = irmao->filho[irmao->n];
+            irmao->filho[irmao->n] = NULL;
+        }
+        filho->chave[0] = pai->chave[idx - 1];
+        pai->chave[idx - 1] = irmao->chave[irmao->n - 1];
+        filho->n++;
+        irmao->n--;
+    } else if (idx != pai->n && pai->filho[idx + 1]->n >= 2) {
+        No *filho = pai->filho[idx];
+        No *irmao = pai->filho[idx + 1];
+        filho->chave[filho->n] = pai->chave[idx];
+        if (!filho->folha)
+            filho->filho[filho->n + 1] = irmao->filho[0];
+        pai->chave[idx] = irmao->chave[0];
+        for (int j = 0; j < irmao->n - 1; j++)
+            irmao->chave[j] = irmao->chave[j + 1];
+        if (!irmao->folha) {
+            for (int j = 0; j < irmao->n; j++)
+                irmao->filho[j] = irmao->filho[j + 1];
+            irmao->filho[irmao->n] = NULL;
+        }
+        filho->n++;
+        irmao->n--;
+    } else {
+        if (idx != pai->n) fundir_filhos(pai, idx);
+        else fundir_filhos(pai, idx - 1);
+    }
+}
+
+static void remover_de_folha(No *no, int idx) {
+    for (int i = idx + 1; i < no->n; i++) no->chave[i - 1] = no->chave[i];
+    no->n--;
+}
+
+static void remover_de_nao_folha(No *no, int idx);
+
+static void remover_rec(No *no, int valor) {
+    int idx = encontrar_chave(no, valor);
+    if (idx < no->n && no->chave[idx] == valor) {
+        if (no->folha) remover_de_folha(no, idx);
+        else remover_de_nao_folha(no, idx);
+        return;
+    }
+    if (no->folha) return;
+
+    int estava_no_ultimo = (idx == no->n);
+    if (no->filho[idx]->n == 1) preencher_filho(no, idx);
+    if (estava_no_ultimo && idx > no->n)
+        remover_rec(no->filho[idx - 1], valor);
+    else
+        remover_rec(no->filho[idx], valor);
+}
+
+static void remover_de_nao_folha(No *no, int idx) {
+    int valor = no->chave[idx];
+    if (no->filho[idx]->n >= 2) {
+        int pred = predecessor(no->filho[idx]);
+        no->chave[idx] = pred;
+        remover_rec(no->filho[idx], pred);
+    } else if (no->filho[idx + 1]->n >= 2) {
+        int suc = sucessor(no->filho[idx + 1]);
+        no->chave[idx] = suc;
+        remover_rec(no->filho[idx + 1], suc);
+    } else {
+        fundir_filhos(no, idx);
+        remover_rec(no->filho[idx], valor);
+    }
+}
+
+static void remover(No **raiz, int valor) {
+    if (!*raiz || !buscar(*raiz, valor)) {
+        printf("Valor nao encontrado.\n");
+        return;
+    }
+    remover_rec(*raiz, valor);
+    if ((*raiz)->n == 0) {
+        No *antiga = *raiz;
+        if (antiga->folha) *raiz = NULL;
+        else *raiz = antiga->filho[0];
+        free(antiga);
+    }
+    printf("Valor removido.\n");
+}
+
+static void percorrer_em_ordem(No *no) {
+    if (!no) return;
+    for (int i = 0; i < no->n; i++) {
+        if (!no->folha) percorrer_em_ordem(no->filho[i]);
+        printf("%d ", no->chave[i]);
+    }
+    if (!no->folha) percorrer_em_ordem(no->filho[no->n]);
+}
+
+static int altura(No *no) {
+    if (!no) return 0;
+    if (no->folha) return 1;
+    return 1 + altura(no->filho[0]);
+}
+
+static void exibir_nivel(No *no, int nivel) {
+    if (!no) return;
+    if (nivel == 0) {
+        printf("[");
+        for (int i = 0; i < no->n; i++)
+            printf("%s%d", i ? " | " : "", no->chave[i]);
+        printf("] ");
+    } else if (!no->folha) {
+        for (int i = 0; i <= no->n; i++) exibir_nivel(no->filho[i], nivel - 1);
+    }
+}
+
+static void exibir_por_niveis(No *raiz) {
+    if (!raiz) {
+        printf("Arvore vazia.\n");
+        return;
+    }
+    int h = altura(raiz);
+    for (int nivel = 0; nivel < h; nivel++) {
+        printf("Nivel %d: ", nivel);
+        exibir_nivel(raiz, nivel);
+        printf("\n");
+    }
+}
+
+static void liberar_arvore(No *no) {
+    if (!no) return;
+    if (!no->folha)
+        for (int i = 0; i <= no->n; i++) liberar_arvore(no->filho[i]);
+    free(no);
+}
+
+int main(void) {
+    No *raiz = NULL;
+    int opcao, valor;
+
+    do {
+        printf("\n1 - Inserir valor\n");
+        printf("2 - Buscar valor\n");
+        printf("3 - Remover valor\n");
+        printf("4 - Percorrer em ordem\n");
+        printf("5 - Exibir arvore por niveis\n");
+        printf("0 - Sair\n");
+        printf("Opcao: ");
+        if (scanf("%d", &opcao) != 1) {
+            printf("Entrada invalida. Encerrando.\n");
+            break;
+        }
+
+        switch (opcao) {
+            case 1:
+                printf("Valor a inserir: ");
+                if (scanf("%d", &valor) == 1) inserir(&raiz, valor);
+                else { printf("Entrada invalida.\n"); liberar_arvore(raiz); return 1; }
+                break;
+            case 2:
+                printf("Valor a buscar: ");
+                if (scanf("%d", &valor) == 1)
+                    printf(buscar(raiz, valor) ? "Valor encontrado.\n" : "Valor nao encontrado.\n");
+                else { printf("Entrada invalida.\n"); liberar_arvore(raiz); return 1; }
+                break;
+            case 3:
+                printf("Valor a remover: ");
+                if (scanf("%d", &valor) == 1) remover(&raiz, valor);
+                else { printf("Entrada invalida.\n"); liberar_arvore(raiz); return 1; }
+                break;
+            case 4:
+                if (!raiz) printf("Arvore vazia.\n");
+                else { percorrer_em_ordem(raiz); printf("\n"); }
+                break;
+            case 5:
+                exibir_por_niveis(raiz);
+                break;
+            case 0:
+                break;
+            default:
+                printf("Opcao invalida.\n");
+        }
+    } while (opcao != 0);
+
+    liberar_arvore(raiz);
+    printf("Memoria liberada. Programa encerrado.\n");
+    return 0;
+}
