@@ -19,7 +19,6 @@ typedef struct {
     No *NIL;
 } ArvoreRN;
 
-
 ArvoreRN *criarArvore() {
     ArvoreRN *arvore = malloc(sizeof(ArvoreRN));
     if (arvore == NULL) {
@@ -58,6 +57,7 @@ No *criarNo(ArvoreRN *arvore, int valor) {
     return novo;
 }
 
+
 No *buscar(No *no, No *NIL, int valor) {
     if (no == NIL || no->valor == valor) {
         return no;
@@ -86,6 +86,7 @@ void transplantar(ArvoreRN *arvore, No *u, No *v) {
     v->pai = u->pai;
 }
 
+
 void rotacaoEsquerda(ArvoreRN *arvore, No *x) {
     No *y = x->direita;
     x->direita = y->esquerda;
@@ -109,7 +110,6 @@ void rotacaoDireita(ArvoreRN *arvore, No *y) {
     x->direita = y;
     y->pai = x;
 }
-
 
 void balancearInsercao(ArvoreRN *arvore, No *z) {
     while (z->pai->cor == VERMELHO) {
@@ -139,12 +139,10 @@ void balancearInsercao(ArvoreRN *arvore, No *z) {
                 z->pai->pai->cor = VERMELHO;
                 z = z->pai->pai;
             } else {
-                // Tio Preto
                 if (z == z->pai->esquerda) {
                     z = z->pai;
                     rotacaoDireita(arvore, z);
                 }
-
                 z->pai->cor = PRETO;
                 z->pai->pai->cor = VERMELHO;
                 rotacaoEsquerda(arvore, z->pai->pai);
@@ -178,7 +176,6 @@ void inserir(ArvoreRN *arvore, int valor) {
     balancearInsercao(arvore, z);
     printf("Valor %d inserido com sucesso.\n", valor);
 }
-
 
 void balancearRemocao(ArvoreRN *arvore, No *x) {
     while (x != arvore->raiz && x->cor == PRETO) {
@@ -245,7 +242,6 @@ void remover(ArvoreRN *arvore, int valor) {
     No *y = z;
     No *x;
     Cor corOriginalY = y->cor;
-
     if (z->esquerda == arvore->NIL) {
         x = z->direita;
         transplantar(arvore, z, z->direita);
@@ -301,6 +297,7 @@ void percorrerPosOrdem(ArvoreRN *arvore, No *raiz) {
         printf("%d ", raiz->valor);
     }
 }
+
 
 int calcularAlturaPreta(ArvoreRN *arvore, No *no) {
     int altura = 0;
